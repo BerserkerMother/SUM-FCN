@@ -1,5 +1,3 @@
-import numpy as np
-
 import torch
 from torch.utils.data import Dataset
 from pathlib import Path
@@ -48,8 +46,8 @@ class TSDataset(Dataset):
         random_indices = np.random.choice(num_frames, size=320)
         features = features[random_indices, :]
         targets = targets[random_indices]
-
-        return features, targets, self.user_summaries[idx]
+        sampling = (num_frames, random_indices)
+        return features, targets, sampling, self.user_summaries[idx]
 
     def get_datasets(self, keys: List[str]):
         files_name = [str(Path(key).name) for key in keys]
@@ -93,7 +91,7 @@ class UserSummaries:
 
 
 def collate_fn(batch):
-    features, targets, user_summaries = batch[0]
+    features, targets, samplings, user_summaries = batch[0]
     features = features.unsqueeze(0)
     targets = targets.unsqueeze(0)
-    return features, targets, user_summaries
+    return features, targets, samplings, user_summaries

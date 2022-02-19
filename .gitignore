@@ -7,3 +7,6 @@
 
 # data folder
 /data/
+
+# pytorch pth files
+**.pth

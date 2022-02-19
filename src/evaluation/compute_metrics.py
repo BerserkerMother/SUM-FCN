@@ -1,7 +1,5 @@
 import logging
 
-import os
-
 import numpy as np
 
 from .evaluation_metrics import evaluate_summary
@@ -39,14 +37,31 @@ def upsample(scores, n_frames, positions):
     return frame_scores
 
 
-def eval_metrics(data, user_dict):
+def nearest_neighbor_interpolate(scores, n_frames, positions):
+    frame_scores = np.zeros((n_frames), dtype=np.float32)
+    start_point = 0
+    period_length = (positions[1] - positions[0]) // 2
+    end_point = positions[0] + period_length
+    frame_scores[start_point:end_point] = scores[0]
+    for i in range(1, len(positions) - 1):
+        start_point = end_point
+        period_length = (positions[i + 1] - positions[i]) // 2
+        end_point = positions[i] + period_length
+        frame_scores[start_point:end_point] = scores[i]
+    frame_scores[end_point:] = scores[-1]
+    return frame_scores
+
+
+def eval_metrics(data, user_dict, samplings):
     eval_method = 'avg'
 
     all_scores = []
     keys = list(data.keys())
 
     for video_name in keys:  # for each video inside that json file ...
+        n_frame, positions = samplings[video_name]
         scores = data[video_name]  # read the importance scores from frames
+        scores = nearest_neighbor_interpolate(scores, n_frame, positions)
         all_scores.append(scores)
 
     all_user_summary, all_user_scores, all_shot_bound, \

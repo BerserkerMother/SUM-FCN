@@ -138,13 +138,13 @@ def main(args, splits):
 def train_step(model, optim, ft_train_loader, scaler, device):
     model.train()
     loss_avg = AverageMeter()
-    for i, (feature, target, _) in enumerate(ft_train_loader):
+    for i, (feature, target, _, _) in enumerate(ft_train_loader):
         feature = feature.to(device)
         target = target.to(device)
 
         with amp.autocast():
-            pred = model(feature)
-            loss = F.binary_cross_entropy_with_logits(pred, target)
+            pred = torch.sigmoid(model(feature))
+            loss = F.mse_loss(pred, target)
 
         optim.zero_grad()
         scaler.scale(loss).backward()
@@ -159,19 +159,20 @@ def train_step(model, optim, ft_train_loader, scaler, device):
 @torch.no_grad()
 def val_step(model, ft_test_loader, device):
     model.eval()
-    score_dict, user_dict = {}, {}
+    score_dict, user_dict, samplings = {}, {}, {}
     loss_avg = AverageMeter()
-    for i, (feature, target, user) in enumerate(ft_test_loader):
+    for i, (feature, target, sampling, user) in enumerate(ft_test_loader):
         feature = feature.to(device)
         target = target.to(device)
 
-        pred = model(feature)
-        loss = F.binary_cross_entropy_with_logits(pred, target)
+        pred = torch.sigmoid(model(feature))
+        loss = F.mse_loss(pred, target)
 
         loss_avg.update(loss.item(), 1)
         score_dict[user.name] = pred.squeeze(0).detach().cpu().numpy()
         user_dict[user.name] = user
-    f_score, ktau, spr = eval_metrics(score_dict, user_dict)
+        samplings[user.name] = sampling
+    f_score, ktau, spr = eval_metrics(score_dict, user_dict, samplings)
 
     return loss_avg.avg(), f_score, ktau, spr
 
@@ -179,7 +180,7 @@ def val_step(model, ft_test_loader, device):
 arg_parser = argparse.ArgumentParser('SUM FCN')
 arg_parser.add_argument('--dropout', default=0.3, type=float)
 
-arg_parser.add_argument('--lr', default=1e5, type=float)
+arg_parser.add_argument('--lr', default=1e-5, type=float)
 arg_parser.add_argument('--weight_decay', default=0.01, type=float)
 
 arg_parser.add_argument('--data', type=str, default="data")
