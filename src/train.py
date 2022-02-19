@@ -30,7 +30,7 @@ def main(args, splits):
         logging.info(f"\nSplit {split_idx + 1}")
 
         # create model
-        model = sum_fcn_builder(num_classes=1)
+        model = sum_fcn_builder(num_classes=2)
         optim = Adam(model.parameters(), lr=args.lr,
                      weight_decay=args.weight_decay)
 
@@ -49,14 +49,15 @@ def main(args, splits):
         train_split = split['train_keys']
         test_split = split['test_keys']
 
-        train_split_set = TSDataset(args.data, args.dataset, train_split)
-        val_split_set = TSDataset(args.data, args.dataset, test_split)
+        train_split_set = TSDataset(args.data, args.ex_dataset, args.datasets,
+                                    train_split)
+        val_split_set = TSDataset(args.data, args.ex_dataset, args.datasets,
+                                  test_split, split="val")
 
         train_loader = DataLoader(
             dataset=train_split_set,
             shuffle=True,
             num_workers=4,
-            collate_fn=collate_fn,
             batch_size=args.batch_size
         )
 
@@ -138,13 +139,13 @@ def main(args, splits):
 def train_step(model, optim, ft_train_loader, scaler, device):
     model.train()
     loss_avg = AverageMeter()
-    for i, (feature, target, _, _) in enumerate(ft_train_loader):
+    for i, (feature, target) in enumerate(ft_train_loader):
         feature = feature.to(device)
-        target = target.to(device)
+        target = target.to(device).view(-1)
 
         with amp.autocast():
-            pred = torch.sigmoid(model(feature))
-            loss = F.mse_loss(pred, target)
+            pred = model(feature)
+            loss = F.cross_entropy(pred, target)
 
         optim.zero_grad()
         scaler.scale(loss).backward()
@@ -163,13 +164,13 @@ def val_step(model, ft_test_loader, device):
     loss_avg = AverageMeter()
     for i, (feature, target, sampling, user) in enumerate(ft_test_loader):
         feature = feature.to(device)
-        target = target.to(device)
+        target = target.to(device).view(-1)
 
         pred = torch.sigmoid(model(feature))
-        loss = F.mse_loss(pred, target)
+        loss = F.cross_entropy(pred, target)
 
         loss_avg.update(loss.item(), 1)
-        score_dict[user.name] = pred.squeeze(0).detach().cpu().numpy()
+        score_dict[user.name] = pred[:, 1].squeeze(0).detach().cpu().numpy()
         user_dict[user.name] = user
         samplings[user.name] = sampling
     f_score, ktau, spr = eval_metrics(score_dict, user_dict, samplings)
@@ -180,13 +181,18 @@ def val_step(model, ft_test_loader, device):
 arg_parser = argparse.ArgumentParser('SUM FCN')
 arg_parser.add_argument('--dropout', default=0.3, type=float)
 
-arg_parser.add_argument('--lr', default=1e-5, type=float)
+arg_parser.add_argument('--lr', default=1e-4, type=float)
 arg_parser.add_argument('--weight_decay', default=0.01, type=float)
 
 arg_parser.add_argument('--data', type=str, default="data")
-arg_parser.add_argument('--dataset', type=str, default="tvsum")
-arg_parser.add_argument('--batch_size', default=1, type=int)
-arg_parser.add_argument('--max_epoch', default=200, type=int)
+arg_parser.add_argument('--ex_dataset', type=str, default="tvsum",
+                        help="experimenting dataset")
+arg_parser.add_argument('--datasets', type=str, default="tvsum",
+                        help="datasets to load")
+arg_parser.add_argument('--batch_size', default=1, type=int,
+                        help="mini batch size")
+arg_parser.add_argument('--max_epoch', default=200, type=int,
+                        help="number of training epochs")
 arg_parser.add_argument("--name", default="", type=str,
                         help="wandb experiment name")
 arg_parser.add_argument("--use_model", action="store_true",

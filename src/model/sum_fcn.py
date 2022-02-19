@@ -54,7 +54,7 @@ class SumFCN(nn.Module):
         x = self.de_conv2(x + pool4)
 
         # apply softmax
-        logits = x.transpose(1, 2).view(batch_size, -1)
+        logits = F.softmax(x.transpose(1, 2).view(-1, 2), dim=-1)
         return logits
 
 
