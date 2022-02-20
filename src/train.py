@@ -10,7 +10,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.cuda import amp
 
-from model import sum_fcn_builder
+from model import sum_fcn_builder_attention
 from utils import set_seed, AverageMeter, load_json, load_yaml
 from evaluation.compute_metrics import eval_metrics
 from data import TSDataset, collate_fn
@@ -30,7 +30,7 @@ def main(args, splits):
         logging.info(f"\nSplit {split_idx + 1}")
 
         # create model
-        model = sum_fcn_builder(num_classes=2)
+        model = sum_fcn_builder_attention(num_classes=2)
         optim = Adam(model.parameters(), lr=args.lr,
                      weight_decay=args.weight_decay)
 
@@ -117,7 +117,8 @@ def main(args, splits):
             )
 
             logging.info(
-                f"Epoch {e} : [Train loss {train_loss:.4f}, Val loss {val_loss:.4f}, Epoch time {e_end - e_start:.4f}]")
+                f"Epoch {e} : [Train loss {train_loss:.4f}, Val loss "
+                f"{val_loss:.4f}, Epoch time {e_end - e_start:.4f}]")
             logging.info(50 * '-')
             # save model's state dict
             torch.save(model.state_dict(), "model_mae.pth")
