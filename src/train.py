@@ -66,7 +66,7 @@ def main(args, splits):
             shuffle=True,
             num_workers=4,
             collate_fn=collate_fn,
-            batch_size=args.batch_size
+            batch_size=1
         )
 
         ft_time_start = time.time()
@@ -144,8 +144,8 @@ def train_step(model, optim, ft_train_loader, scaler, device):
         target = target.to(device).view(-1)
 
         with amp.autocast():
-            pred = model(feature)
-            loss = F.cross_entropy(pred, target)
+            logits = model(feature)
+            loss = F.cross_entropy(logits, target)
 
         optim.zero_grad()
         scaler.scale(loss).backward()
@@ -166,8 +166,9 @@ def val_step(model, ft_test_loader, device):
         feature = feature.to(device)
         target = target.to(device).view(-1)
 
-        pred = torch.sigmoid(model(feature))
-        loss = F.cross_entropy(pred, target)
+        logits = model(feature)
+        loss = F.cross_entropy(logits, target)
+        pred = F.softmax(logits, dim=1)
 
         loss_avg.update(loss.item(), 1)
         score_dict[user.name] = pred[:, 1].squeeze(0).detach().cpu().numpy()
