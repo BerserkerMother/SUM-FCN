@@ -37,7 +37,6 @@ class SumFCNAttention(nn.Module):
         )
 
     def forward(self, x):
-        batch_size = x.size()[0]
 
         # let the magic begin
         x = self.feature_projection(x).transpose(1, 2)
@@ -54,7 +53,7 @@ class SumFCNAttention(nn.Module):
         x = self.de_conv2(x + pool4)
 
         # apply softmax
-        logits = F.softmax(x.transpose(1, 2).view(-1, 2), dim=-1)
+        logits = x.transpose(1, 2).reshape(-1, 2)
         return logits
 
 
